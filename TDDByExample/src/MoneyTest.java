@@ -3,34 +3,68 @@ import junit.framework.TestCase;
 public class MoneyTest extends TestCase {
 	
 	public void testMultiplication() {
-		Dollar five = new Dollar(5);
-		assertEquals(new Dollar(10), five.times(2));
-		assertEquals(new Dollar(15), five.times(3));
+		Money five = Money.dollar(5);
+		assertEquals(Money.dollar(10), five.times(2));
+		assertEquals(Money.dollar(15), five.times(3));
+	}
+	
+	public void testFrancMultiplication() {
+		Money five = Money.franc(5);
+		assertEquals(Money.franc(10), five.times(2));
+		assertEquals(Money.franc(15), five.times(3));
 	}
 	
 	public void testEquality() {
-		assertTrue(new Dollar(5).equals(new Dollar(5)));
-		assertFalse(new Dollar(6).equals(new Dollar(5)));
+		assertTrue(Money.dollar(5).equals(Money.dollar(5)));
+		assertFalse(Money.dollar(6).equals(Money.dollar(5)));
+		
+		assertTrue(Money.franc(5).equals(new Franc(5)));
+		assertFalse(Money.franc(6).equals(new Franc(5)));
+		
+		assertFalse(Money.franc(5).equals(Money.dollar(5)));
 	}
 
 }
+abstract class Money {
+	protected int amount;
+	
+	public boolean equals(Object object) {
+		Money money = (Money)object;
+		return amount == money.amount && getClass().equals(money.getClass());
+	}
 
+	static Money dollar(int amount) {
+		return new Dollar(amount);
+	}
+	static Money franc(int amount) {
+		return new Franc(amount);
+	}
+	
+	abstract Money times(int multiplier);
+}
 
-class Dollar {
-
-	private int amount;
+class Dollar extends Money{
 
 	Dollar(int amount) {
 		this.amount = amount;
 	}
 
-	Dollar times(int multiplier) {
+	Money times(int multiplier) {
 		return new Dollar(amount * multiplier);
 	}
 	
-	public boolean equals(Object object) {
-		Dollar dollar = (Dollar)object;
-		return amount == dollar.amount;
+	
+	
+}
+class Franc extends Money{
+
+	Franc(int amount) {
+		this.amount = amount;
 	}
+
+	Money times(int multiplier) {
+		return new Franc(amount * multiplier);
+	}
+	
 	
 }
