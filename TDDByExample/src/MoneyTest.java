@@ -1,3 +1,7 @@
+import java.util.Hashtable;
+
+import javax.swing.text.FieldView;
+
 import junit.framework.TestCase;
 
 public class MoneyTest extends TestCase {
@@ -55,6 +59,49 @@ public class MoneyTest extends TestCase {
 		assertEquals(Money.dollar(1), result);
 	}
 	
+	public void testReduceMoneyDifferentCurrency() {
+		Bank bank = new Bank();
+		bank.addRate("CHF","USD",2);
+		Money result = bank.reduce(Money.franc(2), "USD");
+		assertEquals(Money.dollar(1), result);
+	}
+	
+	public void testIdentityRate() {
+		assertEquals(1, new Bank().rate("USD", "USD"));
+	}
+	
+	public void testMixedAddition() {
+		Expression fiveBucks = Money.dollar(5);
+		Expression tenFrancs = Money.franc(10);
+		Bank bank = new Bank();
+		bank.addRate("CHF", "USD", 2);
+		Money result = bank.reduce(fiveBucks.plus(tenFrancs), "USD");
+		assertEquals(Money.dollar(10), result);
+	}
+	
+	public void testSumPlusMoney() {
+		Expression fiveBucks  = Money.dollar(5);
+		Expression tenFrancs  = Money.franc(10);
+		Bank bank = new Bank();
+		bank.addRate("CHF", "USD", 2);
+		Expression sum= new Sum(fiveBucks, tenFrancs).plus(fiveBucks);
+		Money result = bank.reduce(sum, "USD");
+		assertEquals(Money.dollar(15), result);
+	}
+	
+	public void testSumTimes() {
+		Expression fiveBucks  = Money.dollar(5);
+		Expression tenFrancs  = Money.franc(10);
+		Bank bank = new Bank();
+		bank.addRate("CHF", "USD", 2);
+		Expression sum= new Sum(fiveBucks, tenFrancs).times(2);
+		Money result = bank.reduce(sum, "USD");
+		assertEquals(Money.dollar(20), result);
+	}
+//	public void testSameCurrencyReturnsMoney() {
+//		Expression sum = Money.dollar(1).plus(Money.dollar(1));
+//		assertTrue(sum instanceof Money);
+//	}
 
 }
 class Money implements Expression{
@@ -65,7 +112,7 @@ class Money implements Expression{
 		Money money = (Money)object;
 		return amount == money.amount && currency().equals(money.currency());
 	}
-	Expression plus(Money addend) {
+	public Expression plus(Expression addend) {
 		return new Sum(this, addend);
 	}
 	public Money(int amount, String currency) {
@@ -80,7 +127,7 @@ class Money implements Expression{
 		return new Money(amount, "CHF");
 	}
 
-	Money times(int multiplier) {
+	public Expression times(int multiplier) {
 		return new Money(amount * multiplier, currency);
 	}
 	
@@ -88,41 +135,76 @@ class Money implements Expression{
 		return currency;
 	}
 	
-	
-	public Money reduce(String to) {
-		return this;
+	public Money reduce(Bank bank,String to) {
+		int rate = bank.rate(currency, to);
+		return new Money(amount / rate, to);
 	}
-	
 	public String toString() {
 		return amount + " "+currency;
 	}
 }
 
 interface Expression {
-
-	Money reduce(String to);
-	
+	Money reduce(Bank bank, String to);
+	Expression plus(Expression expression);
+	Expression times(int multiplier);
 }
 class Bank {
-
+	private Hashtable rates = new Hashtable<>();
 	public Money reduce(Expression source, String to) {
-		return source.reduce(to);
+		return source.reduce(this, to);
+	}
+	
+	int rate(String from, String to) {
+		if(from.equals(to)) return 1;
+		Integer rate = (Integer)rates.get(new Pair(from, to));
+		return rate.intValue();
+	}
+
+	public void addRate(String from, String to, int rate) {
+		rates.put(new Pair(from, to), new Integer(rate));
+	}
+	private class Pair {
+		private String from;
+		private String to;
+		Pair(String from, String to){
+			this.from = from;
+			this.to = to;
+		}
+		
+		public boolean equals(Object obj) {
+			Pair pair = (Pair)obj;
+			return from.equals(pair.from) && to.equals(pair.to);
+		}
+
+		public int hashCode() {
+			return 0;
+		}
 	}
 	
 }
 
 class Sum implements Expression{
-	Money augend;
-	Money addend;
+	Expression augend;
+	Expression addend;
 	
-	public Sum(Money augend, Money addend) {
+	public Sum(Expression augend, Expression addend) {
 		this.augend = augend;
 		this.addend = addend;
 	}
 
-	public Money reduce(String to) {
-		int amount = augend.amount + addend.amount;
+	public Expression times(int multiplier) {
+		return new Sum(augend.times(multiplier), addend.times(multiplier));
+	}
+
+	public Money reduce(Bank bank,String to) {
+		int amount = augend.reduce(bank, to).amount + addend.reduce(bank, to).amount;
 		return new Money(amount, to);
+	}
+
+	@Override
+	public Expression plus(Expression expression) {
+		return new Sum(this, addend);
 	}
 	
 }
